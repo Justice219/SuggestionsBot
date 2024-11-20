@@ -45,15 +45,23 @@ module.exports = {
             }
 
             const oldEmbed = message.embeds[0];
+            const infoField = oldEmbed.fields[0];
+            const newInfoValue = infoField.value
+                .replace(
+                    /\*\*Status:\*\* 📊 Pending/,
+                    `**Status:** ${isAccepting ? '✅ Accepted' : '❌ Denied'}`
+                );
+
             const newEmbed = EmbedBuilder.from(oldEmbed)
-                .setColor(isAccepting ? '#00ff00' : '#ff0000');
-            
-            // Update the status field
-            const statusField = newEmbed.data.fields.find(f => f.name === 'Status');
-            statusField.value = isAccepting ? '✅ Accepted' : '❌ Denied';
-            
-            // Add reason field
-            newEmbed.addFields({ name: 'Reason', value: reason });
+                .setColor(isAccepting ? '#57F287' : '#ED4245')
+                .setFields([
+                    { ...infoField, value: newInfoValue },
+                    { 
+                        name: `${isAccepting ? '✅' : '❌'} **Response**`,
+                        value: reason,
+                        inline: false 
+                    }
+                ]);
 
             await message.edit({ embeds: [newEmbed] });
             await interaction.reply({ 

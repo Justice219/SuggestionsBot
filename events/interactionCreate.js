@@ -60,15 +60,25 @@ module.exports = {
             const description = interaction.fields.getTextInputValue('suggestion_description');
 
             const embed = new EmbedBuilder()
-                .setTitle(`${categoryConfig.emoji} ${title}`)
-                .setDescription(description)
-                .setColor('#2f3136')
-                .addFields(
-                    { name: 'Category', value: category, inline: true },
-                    { name: 'Status', value: '📊 Pending', inline: true },
-                    { name: 'Votes', value: '👍 0 | 👎 0', inline: true }
-                )
-                .setFooter({ text: `Suggested by ${interaction.user.tag}` })
+                .setTitle(`${categoryConfig.emoji} Suggestion: ${title}`)
+                .setDescription(`>>> ${description}`)
+                .setColor('#2B2D31')
+                .addFields([
+                    {
+                        name: '**Information**',
+                        value: [
+                            `**Category:** ${categoryConfig.emoji} ${category}`,
+                            `**Status:** 📊 Pending`,
+                            `**Submitted by:** ${interaction.user}`,
+                            `**Votes:** 👍 \`0\` | 👎 \`0\``
+                        ].join('\n'),
+                        inline: false
+                    }
+                ])
+                .setFooter({ 
+                    text: `Suggestion ID: ${interaction.id}`, 
+                    iconURL: interaction.user.displayAvatarURL() 
+                })
                 .setTimestamp();
 
             const buttons = new ActionRowBuilder()
@@ -76,11 +86,13 @@ module.exports = {
                     new ButtonBuilder()
                         .setCustomId('suggestion_upvote')
                         .setEmoji('👍')
-                        .setStyle(ButtonStyle.Secondary),
+                        .setStyle(ButtonStyle.Success)
+                        .setLabel('0'),
                     new ButtonBuilder()
                         .setCustomId('suggestion_downvote')
                         .setEmoji('👎')
-                        .setStyle(ButtonStyle.Secondary)
+                        .setStyle(ButtonStyle.Danger)
+                        .setLabel('0')
                 );
 
             const channel = interaction.client.channels.cache.get(categoryConfig.channelId);
@@ -91,22 +103,43 @@ module.exports = {
         // Handle voting
         if (interaction.isButton()) {
             if (interaction.customId === 'suggestion_upvote' || interaction.customId === 'suggestion_downvote') {
-                // Get the current embed
                 const message = interaction.message;
                 const embed = message.embeds[0];
                 
-                // Parse current votes
-                const votesField = embed.fields.find(f => f.name === 'Votes');
-                const [upvotes, downvotes] = votesField.value.match(/\d+/g).map(Number);
+                // Parse current votes from button labels
+                const upvotes = parseInt(message.components[0].components[0].label) || 0;
+                const downvotes = parseInt(message.components[0].components[1].label) || 0;
 
                 // Update votes
                 const newUpvotes = interaction.customId === 'suggestion_upvote' ? upvotes + 1 : upvotes;
                 const newDownvotes = interaction.customId === 'suggestion_downvote' ? downvotes + 1 : downvotes;
 
                 // Update embed
-                embed.fields.find(f => f.name === 'Votes').value = `👍 ${newUpvotes} | 👎 ${newDownvotes}`;
+                const infoField = embed.fields[0];
+                const newInfoValue = infoField.value.replace(
+                    /\*\*Votes:\*\* 👍 `\d+` \| 👎 `\d+`/,
+                    `**Votes:** 👍 \`${newUpvotes}\` | 👎 \`${newDownvotes}\``
+                );
+                
+                const newEmbed = EmbedBuilder.from(embed)
+                    .setFields([{ ...infoField, value: newInfoValue }]);
 
-                await message.edit({ embeds: [embed] });
+                // Update buttons
+                const buttons = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('suggestion_upvote')
+                            .setEmoji('👍')
+                            .setStyle(ButtonStyle.Success)
+                            .setLabel(newUpvotes.toString()),
+                        new ButtonBuilder()
+                            .setCustomId('suggestion_downvote')
+                            .setEmoji('👎')
+                            .setStyle(ButtonStyle.Danger)
+                            .setLabel(newDownvotes.toString())
+                    );
+
+                await message.edit({ embeds: [newEmbed], components: [buttons] });
                 await interaction.reply({ content: 'Your vote has been recorded!', ephemeral: true });
             }
         }
