@@ -113,7 +113,8 @@ suggestions-bot/
 ├── deploy-commands.js
 ├── index.js
 ├── package.json
-└── README.md```
+└── README.md
+```
 
 
 ## Contributing 🤝
