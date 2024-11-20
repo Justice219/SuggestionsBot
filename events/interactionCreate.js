@@ -60,24 +60,41 @@ module.exports = {
             const description = interaction.fields.getTextInputValue('suggestion_description');
 
             const embed = new EmbedBuilder()
-                .setTitle(`${categoryConfig.emoji} Suggestion: ${title}`)
-                .setDescription(`>>> ${description}`)
-                .setColor('#2B2D31')
+                .setAuthor({ 
+                    name: interaction.user.tag, 
+                    iconURL: interaction.user.displayAvatarURL({ dynamic: true }) 
+                })
+                .setTitle(`${categoryConfig.emoji} ${title}`)
+                .setDescription([
+                    '```',
+                    description,
+                    '```'
+                ].join('\n'))
+                .setColor('#5865F2') // Discord Blurple color
                 .addFields([
                     {
-                        name: '**Information**',
+                        name: '**Status**',
+                        value: '📊 Pending',
+                        inline: true
+                    },
+                    {
+                        name: '**Category**',
+                        value: `${categoryConfig.emoji} ${category}`,
+                        inline: true
+                    },
+                    {
+                        name: '**Votes**',
                         value: [
-                            `**Category:** ${categoryConfig.emoji} ${category}`,
-                            `**Status:** 📊 Pending`,
-                            `**Submitted by:** ${interaction.user}`,
-                            `**Votes:** 👍 \`0\` | 👎 \`0\``
+                            '```diff',
+                            '+ 0 Upvotes',
+                            '- 0 Downvotes',
+                            '```'
                         ].join('\n'),
-                        inline: false
+                        inline: true
                     }
                 ])
                 .setFooter({ 
-                    text: `Suggestion ID: ${interaction.id}`, 
-                    iconURL: interaction.user.displayAvatarURL() 
+                    text: `Suggestion ID: ${interaction.id}` 
                 })
                 .setTimestamp();
 
@@ -87,17 +104,20 @@ module.exports = {
                         .setCustomId('suggestion_upvote')
                         .setEmoji('👍')
                         .setStyle(ButtonStyle.Success)
-                        .setLabel('0'),
+                        .setLabel('Upvote (0)'),
                     new ButtonBuilder()
                         .setCustomId('suggestion_downvote')
                         .setEmoji('👎')
                         .setStyle(ButtonStyle.Danger)
-                        .setLabel('0')
+                        .setLabel('Downvote (0)')
                 );
 
             const channel = interaction.client.channels.cache.get(categoryConfig.channelId);
             await channel.send({ embeds: [embed], components: [buttons] });
-            await interaction.reply({ content: 'Your suggestion has been submitted!', ephemeral: true });
+            await interaction.reply({ 
+                content: '✅ Your suggestion has been submitted successfully!', 
+                ephemeral: true 
+            });
         }
 
         // Handle voting
@@ -107,22 +127,23 @@ module.exports = {
                 const embed = message.embeds[0];
                 
                 // Parse current votes from button labels
-                const upvotes = parseInt(message.components[0].components[0].label) || 0;
-                const downvotes = parseInt(message.components[0].components[1].label) || 0;
+                const upvotes = parseInt(message.components[0].components[0].label.match(/\d+/)[0]) || 0;
+                const downvotes = parseInt(message.components[0].components[1].label.match(/\d+/)[0]) || 0;
 
                 // Update votes
                 const newUpvotes = interaction.customId === 'suggestion_upvote' ? upvotes + 1 : upvotes;
                 const newDownvotes = interaction.customId === 'suggestion_downvote' ? downvotes + 1 : downvotes;
 
                 // Update embed
-                const infoField = embed.fields[0];
-                const newInfoValue = infoField.value.replace(
-                    /\*\*Votes:\*\* 👍 `\d+` \| 👎 `\d+`/,
-                    `**Votes:** 👍 \`${newUpvotes}\` | 👎 \`${newDownvotes}\``
-                );
-                
-                const newEmbed = EmbedBuilder.from(embed)
-                    .setFields([{ ...infoField, value: newInfoValue }]);
+                const votesField = embed.fields.find(f => f.name === '**Votes**');
+                votesField.value = [
+                    '```diff',
+                    `+ ${newUpvotes} Upvotes`,
+                    `- ${newDownvotes} Downvotes`,
+                    '```'
+                ].join('\n');
+
+                const newEmbed = EmbedBuilder.from(embed);
 
                 // Update buttons
                 const buttons = new ActionRowBuilder()
@@ -131,16 +152,19 @@ module.exports = {
                             .setCustomId('suggestion_upvote')
                             .setEmoji('👍')
                             .setStyle(ButtonStyle.Success)
-                            .setLabel(newUpvotes.toString()),
+                            .setLabel(`Upvote (${newUpvotes})`),
                         new ButtonBuilder()
                             .setCustomId('suggestion_downvote')
                             .setEmoji('👎')
                             .setStyle(ButtonStyle.Danger)
-                            .setLabel(newDownvotes.toString())
+                            .setLabel(`Downvote (${newDownvotes})`)
                     );
 
                 await message.edit({ embeds: [newEmbed], components: [buttons] });
-                await interaction.reply({ content: 'Your vote has been recorded!', ephemeral: true });
+                await interaction.reply({ 
+                    content: `✅ You ${interaction.customId === 'suggestion_upvote' ? 'upvoted' : 'downvoted'} the suggestion!`, 
+                    ephemeral: true 
+                });
             }
         }
     }

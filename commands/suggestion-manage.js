@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 const acceptCommand = new SlashCommandBuilder()
     .setName('accept-suggestion')
@@ -41,37 +41,59 @@ module.exports = {
         try {
             const message = await interaction.channel.messages.fetch(messageId);
             if (!message.embeds.length) {
-                return interaction.reply({ content: 'This message is not a suggestion!', ephemeral: true });
+                return interaction.reply({ content: '❌ This message is not a suggestion!', ephemeral: true });
             }
 
             const oldEmbed = message.embeds[0];
-            const infoField = oldEmbed.fields[0];
-            const newInfoValue = infoField.value
-                .replace(
-                    /\*\*Status:\*\* 📊 Pending/,
-                    `**Status:** ${isAccepting ? '✅ Accepted' : '❌ Denied'}`
-                );
+            
+            // Update status field
+            const statusField = oldEmbed.fields.find(f => f.name === '**Status**');
+            statusField.value = isAccepting ? '✅ Accepted' : '❌ Denied';
 
             const newEmbed = EmbedBuilder.from(oldEmbed)
                 .setColor(isAccepting ? '#57F287' : '#ED4245')
-                .setFields([
-                    { ...infoField, value: newInfoValue },
+                .addFields([
                     { 
-                        name: `${isAccepting ? '✅' : '❌'} **Response**`,
-                        value: reason,
+                        name: isAccepting ? '✅ **Accepted By**' : '❌ **Denied By**',
+                        value: [
+                            '```',
+                            `${interaction.user.tag}`,
+                            '```',
+                            '**Reason:**',
+                            '```',
+                            reason,
+                            '```'
+                        ].join('\n'),
                         inline: false 
                     }
                 ]);
 
-            await message.edit({ embeds: [newEmbed] });
+            // Disable voting buttons
+            const buttons = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('suggestion_upvote')
+                        .setEmoji('👍')
+                        .setStyle(ButtonStyle.Success)
+                        .setLabel(`Upvote (${message.components[0].components[0].label.match(/\d+/)[0]})`)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId('suggestion_downvote')
+                        .setEmoji('👎')
+                        .setStyle(ButtonStyle.Danger)
+                        .setLabel(`Downvote (${message.components[0].components[1].label.match(/\d+/)[0]})`)
+                        .setDisabled(true)
+                );
+
+            await message.edit({ embeds: [newEmbed], components: [buttons] });
             await interaction.reply({ 
-                content: `Suggestion has been ${isAccepting ? 'accepted' : 'denied'}!`, 
+                content: `✅ Suggestion has been ${isAccepting ? 'accepted' : 'denied'}!`, 
                 ephemeral: true 
             });
         } catch (error) {
             console.error(error);
             await interaction.reply({ 
-                content: 'Failed to find the suggestion message. Make sure the ID is correct!', 
+                content: '❌ Failed to find the suggestion message. Make sure the ID is correct!', 
                 ephemeral: true 
             });
         }
